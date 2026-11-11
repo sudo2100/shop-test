@@ -8,6 +8,30 @@ import session from 'express-session'
 const app = express();
 const PORT = process.env.PORT || 8000;
 
+// 배포
+const isProduction = process.env.NODE_ENV = "production";
+
+// DB 연결
+const db = process.env.DATABASE_URL
+    ? new pg.Client({ connectionString: process.env.DATABASE_URL})
+    : new pg.Client({
+        host: "localhost",
+        user: "jsuser",
+        password: "pwjs",
+        database: "tsdb"
+    })
+
+try{
+    await db.connect();
+    console.log("PostgreSQL 연결 성공!");
+}catch(err){
+    console.error("PostgreSQL 연결 실패!", err.message);
+}
+
+if(isProduction){
+    app.set("trust proxy", 1);
+}
+
 // cors - 요청하는 모든 주소 허용
 app.use(cors({
     origin: "http://localhost:5173",
@@ -21,8 +45,10 @@ app.use(session({
     saveUninitialized: false,
     cookie: {
         httpOnly: true,
-        maxAge: 1000 * 60 * 60
-    }
+        maxAge: 1000 * 60 * 60,
+        sameSite: isProduction ? "none" : "lax",
+        secure: isProduction
+    },
 }));
 
 // 본문 요청 파싱 - 상품등록, 회원가입
@@ -42,23 +68,6 @@ const requireAdmin = (req, res, next) => {
         return res.status(403).send("관리자만 사용할 수 있습니다.");
     }
     next();
-}
-
-// DB 연결
-const db = process.env.DATABASE_URL
-    ? new pg.Client({ connectionString: process.env.DATABASE_URL})
-    : new pg.Client({
-        host: "localhost",
-        user: "jsuser",
-        password: "pwjs",
-        database: "tsdb"
-    })
-
-try{
-    await db.connect();
-    console.log("PostgreSQL 연결 성공!");
-}catch(err){
-    console.error("PostgreSQL 연결 실패!", err.message);
 }
 
 // 기본 라우터
