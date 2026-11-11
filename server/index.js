@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 8000;
 
 // 배포
-const isProduction = process.env.NODE_ENV = "production";
+const isProduction = process.env.NODE_ENV === "production";
 
 // DB 연결
 const db = process.env.DATABASE_URL
@@ -32,15 +32,22 @@ if(isProduction){
     app.set("trust proxy", 1);
 }
 
-// cors - 요청하는 모든 주소 허용
+// CORS 허용 주소: 내 컴퓨터(React 개발 서버) + CLIENT_URL(배포된 React 주소)
+// CLIENT_URL에 여러 주소를 쉼표로 넣을 수 있음 (앞뒤 공백 · 끝의 / 는 제거)
+const allowedOrigins = [
+  "http://localhost:5173",
+  ...(process.env.CLIENT_URL
+    ? process.env.CLIENT_URL.split(",").map((s) => s.trim()): [])
+];
+
 app.use(cors({
-    origin: "http://localhost:5173",
+    origin: allowedOrigins,
     credentials: true
 }));
 
 // 세션 설정
 app.use(session({
-    secret: "space-shop-secret",
+    secret: process.env.SESSION_SECRET || "space-shop-secret",
     resave: false,
     saveUninitialized: false,
     cookie: {
