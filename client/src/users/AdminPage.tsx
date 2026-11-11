@@ -4,7 +4,11 @@ import { Link, Navigate } from "react-router-dom";
 
 const AdminPage = () => {
     const { products } = useProduct();
-    const { users, currentUser } = useUser();
+    const { users, currentUser, isAuthLoading } = useUser();
+
+    if(isAuthLoading){
+        return <div>불러오는 중...</div>
+    }
 
     // 관리자가 아니면(로그아웃 포함) 상품 목록으로 이동
     if (currentUser?.role !== "admin") {

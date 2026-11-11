@@ -1,11 +1,19 @@
 import { useEffect, useState } from "react";
 import { UserContext } from "./UserContext";
 import type { User, NewUser, LoginForm, UserUpdateForm } from "../types/user";
-import { getUsers, requestLogin, createUser, modifyUser } from "../api/users";
+import { 
+    getUsers, 
+    requestLogin, 
+    createUser, 
+    getMe,
+    modifyUser,
+    requestLogout
+ } from "../api/users";
 
 const UserProvider = ({children}: {children: React.ReactNode}) => {
     const [users, setUsers] = useState<User[]>([]); //빈 배열
     const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [ isAuthLoading, setIsAuthLoading ] = useState<boolean>(true);
 
     // 회원 목록 조회
     useEffect(() => {
@@ -31,8 +39,16 @@ const UserProvider = ({children}: {children: React.ReactNode}) => {
        }
     }
 
+    useEffect(() => {
+        getMe()
+            .then(setCurrentUser)
+            .catch(() => setCurrentUser(null))
+            .finally(() => setIsAuthLoading(false))
+    }, []);
+
     // 로그아웃 함수
-    const logout = () => {
+    const logout = async () => {
+        await requestLogout();
         setCurrentUser(null);
     }
 
@@ -47,8 +63,9 @@ const UserProvider = ({children}: {children: React.ReactNode}) => {
     return(
         <UserContext.Provider value={{ 
             users, 
-            signup,
             currentUser,
+            isAuthLoading,
+            signup,
             login,
             logout,
             updateUser

@@ -36,3 +36,14 @@ export const modifyUser = async (id: number, form: UserUpdateForm) => {
     const response = await api.put<User>(`/users/${id}`, form);
     return response.data;
 }
+
+// 로그인 확인 - 서버 세션에 남아있는 회원 정보를 받음
+export const getMe = async () => {
+    const response = await api.get<User>('/users/me');
+    return response.data;
+}
+
+// 로그아웃 - 서버의 세션을 지움
+export const requestLogout = async () => {
+    await api.post('/users/logout');
+}

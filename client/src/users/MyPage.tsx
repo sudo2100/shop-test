@@ -100,7 +100,11 @@ const MyPageForm = ({user}: {user: User}) => {
 
 
 const MyPage = () => {
-  const { currentUser } = useUser();
+  const { currentUser, isAuthLoading } = useUser();
+
+  if(isAuthLoading){
+    return <div>불러오는 중...</div>
+  }
 
   if(!currentUser){
     return (

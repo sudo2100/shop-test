@@ -2,16 +2,47 @@ import express from 'express'
 import pg from 'pg'
 import cors from 'cors'
 import bcrypt from 'bcrypt'
+import session from 'express-session'
 
 // express 객체 생성
 const app = express();
 const PORT = process.env.PORT || 8000;
 
 // cors - 요청하는 모든 주소 허용
-app.use(cors());
+app.use(cors({
+    origin: "http://localhost:5173",
+    credentials: true
+}));
+
+// 세션 설정
+app.use(session({
+    secret: "space-shop-secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        maxAge: 1000 * 60 * 60
+    }
+}));
 
 // 본문 요청 파싱 - 상품등록, 회원가입
 app.use(express.json());
+
+// 로그인했는지 확인하는 미들웨어
+const requireLogin = (req, res, next) => {
+    if(!req.session.user){
+        return res.status(401).send("로그인이 필요합니다.");
+    }
+    next();
+}
+
+// 관리자인지 확인하는 미들웨어
+const requireAdmin = (req, res, next) => {
+    if(req.session.user?.role !== "admin"){
+        return res.status(403).send("관리자만 사용할 수 있습니다.");
+    }
+    next();
+}
 
 // DB 연결
 const db = process.env.DATABASE_URL
@@ -61,7 +92,7 @@ app.get("/api/products/:id", async (req, res) => {
 });
 
 // 상품 등록
-app.post("/api/products", async (req, res) => {
+app.post("/api/products", requireAdmin, async (req, res) => {
     const { pName, category, price, description, image} = req.body;
     const sql = "INSERT INTO products(p_name, category, price, description, "
        + " image) VALUES ($1, $2, $3, $4, $5)";
@@ -75,7 +106,7 @@ app.post("/api/products", async (req, res) => {
 })
 
 // 상품 삭제
-app.delete("/api/products/:id", async (req, res) => {
+app.delete("/api/products/:id", requireAdmin, async (req, res) => {
     const pid = req.params.id;  //id 받아오기
     const sql = "DELETE FROM products WHERE id = $1";
     try{
@@ -88,7 +119,7 @@ app.delete("/api/products/:id", async (req, res) => {
 });
 
 // 상품 수정
-app.put("/api/products/:id", async (req, res) => {
+app.put("/api/products/:id", requireAdmin, async (req, res) => {
     const pid = req.params.id;
     const { pName, category, price, description, image} = req.body;
     const sql = "UPDATE products SET p_name=$1, category=$2, price=$3, "
@@ -166,6 +197,7 @@ app.post("/api/users/login", async (req, res) => {
 
     // 3. 응답에서 비밀번호를 빼고 나머지만 보냅니다.
     const { password: _, ...userInfo } = user;
+    req.session.user = userInfo;  // 세션에 로그인 정보 저장
     res.json({
       message: "로그인 성공",
       user: userInfo
@@ -176,8 +208,24 @@ app.post("/api/users/login", async (req, res) => {
   }
 });
 
+// 로그인 확인
+app.get("/api/users/me", requireLogin, (req, res) => {
+    res.json(req.session.user);
+})
+
+// 로그아웃
+app.post("/api/users/logout", (req, res) => {
+    req.session.destroy(() => {
+        res.clearCookie("connect.sid");
+        res.send("로그아웃 완료");
+    })
+})
+
 // 회원 정보 수정
-app.put("/api/users/:id", async (req, res) => {
+app.put("/api/users/:id", requireLogin, async (req, res) => {
+    if(req.session.user.id !== Number(req.params.id)){
+        return res.status(403).send("본인 정보만 수정할 수 있습니다.");
+    }
     const uid = req.params.id;
     const { name, email } = req.body;
     const sql = "UPDATE users SET name=$1, email=$2 WHERE id=$3 "
@@ -187,6 +235,7 @@ app.put("/api/users/:id", async (req, res) => {
         if(result.rows.length === 0){
             return res.status(404).send("회원을 찾을 수 없습니다.");
         }
+        req.session.user = result.rows[0];
         res.json(result.rows[0]);
     }catch(err){
         if(err.code === "23505"){

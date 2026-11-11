@@ -10,9 +10,9 @@ const Header = () => {
     const navigate = useNavigate();
 
     // 로그아웃 시 장바구니 비우고 상품 목록으로 이동
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        await logout();
         clearCart();
-        logout();
         navigate('/');
     }
 
